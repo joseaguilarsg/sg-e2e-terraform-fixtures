@@ -12,6 +12,7 @@ wfr-in-flight/     holds mid-run so a running run can be read       ← unblocks
 wfr-plan-fail/     fails during plan, before any facts are written
 wfr-apply-fail/    plan succeeds, apply collides on a taken name
 wfr-tf-many/       40 resources with long addresses
+wfr-no-op/         a plan that finds nothing to do, every time
 ```
 
 ⚠️ **The folder name IS the fixture id from the test-case plan** — the same `[wfr-...]` each case
@@ -91,6 +92,17 @@ with `BucketAlreadyExists`.
 ⚠️ **Requires `sg-e2e-taken-do-not-delete` to exist beforehand.** Create it once, by hand, and
 never delete it — if it disappears the apply starts succeeding and this stops being a fixture.
 
+### `wfr-no-op/` — nothing to do, every time
+
+No resources and **no outputs**, so the plan is empty on the first run and on every run after it.
+
+⚠️ **The missing outputs are deliberate, and measured.** An output is itself a planned change:
+with one declared, the first plan reports `Changes to Outputs` and the fixture is only a no-op
+from the second run onwards. Declaring nothing is what makes it empty from the start.
+
+The alternative — applying the baseline and planning it again — only reads as a no-op while
+nothing drifts, and stops being one the moment anything changes outside Terraform.
+
 ### `wfr-tf-many/` — pagination and truncation
 
 40 security groups with deliberately long names.
@@ -102,10 +114,6 @@ and the fixture would fail for a reason unrelated to what it tests.
 ---
 
 ## Not here, and why
-
-**`wfr-no-op`** — a no-op is *"apply, then plan again"*. The baseline once applied **is** the no-op,
-so it needs no code of its own. It needs a second workflow only if a no-op must coexist with a
-baseline that still has pending changes.
 
 **`wfr-minimal-config`** — a workflow with no source config, no mini steps, no runner constraints and
 no approvers. That is **workflow configuration**, not code.
