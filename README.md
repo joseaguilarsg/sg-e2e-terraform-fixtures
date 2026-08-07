@@ -27,6 +27,48 @@ failing test has to name the exact state the case asked for, findable without a 
 
 ---
 
+## Where these are seeded
+
+The code here is half of a fixture; the other half is a workflow on the platform pointing at it.
+
+```
+org     demo-org                     ⚠️ NOT autotesting-org — see below
+group   e2e-wfruns-fixtures          16 workflows, one per fixture
+repo    this one, branch main, Working Dir = the folder name
+```
+
+⚠️ **The organization is not interchangeable, and this cost a full day to find.** The same fixture
+— same repo, same folder, same payload — behaves differently per org:
+
+```
+demo-org         run facts land at wfs/{ParentKSUID}/wfruns/{ResourceKSUID}/…   → readable ✅
+autotesting-org  run facts land at wfs/{ParentKSUID}/wfruns/{run_id}/…          → 400 ❌
+```
+
+Core reads the KSUID path either way, so in `autotesting-org` every run reports
+`"Workflow Run Facts does not exist"` even though the file was written correctly. Any case that
+asserts on plan, cost, policy or resources is unrunnable there. Seeded in `demo-org` for that
+reason alone.
+
+### The template fixtures are not in this repo
+
+Three fixtures use a **marketplace template** rather than a custom source, because the cases they
+serve assert on template, revision and patch — fields a `customSource` workflow does not have:
+
+```
+sg-e2e-fixture:1   Latest=False   → wfr-no-op/        wfr-header-variants-old · wfr-revision-changed
+sg-e2e-fixture:2   Latest=True    → wfr-with-inputs/  wfr-header-variants-new
+```
+
+⚠️ **So these folders have a second consumer.** Changing `wfr-no-op/` or `wfr-with-inputs/` also
+changes what those template revisions serve. The template itself lives on the platform, created
+via `POST /templates/` — it is not versioned here.
+
+`wfr-revision-changed` additionally has its workflow moved to `:2` **after** its run executed on
+`:1`, so the run and the workflow deliberately disagree. That divergence IS the fixture.
+
+---
+
 ## Why folders and not branches
 
 A workflow reads code from a repo, so fixtures that need *different code* need different
