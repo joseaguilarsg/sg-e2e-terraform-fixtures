@@ -8,6 +8,7 @@ applied and destroyed by tests, not to serve anything.
 
 ```
 baseline/     applies clean · 3 buckets + a utility resource   ← the workhorse
+in-flight/    holds mid-run so a running run can be read       ← unblocks all of cancel
 plan-fail/    fails during plan, before any facts are written
 apply-fail/   plan succeeds, apply collides on a taken name
 many/         40 resources with long addresses
@@ -54,6 +55,19 @@ Referenced by more cases than any other fixture. Every element earns its place:
 **Applying this is the single highest-return action in the whole fixture backlog.** Nothing in
 the test group has ever applied, and without state there is no destroy, no refresh, no drift and
 no resources.
+
+### `in-flight/` — slow on purpose
+
+A `time_sleep` before the bucket, so the run stalls **during** plan and apply rather than after
+everything already exists. `hold_seconds` defaults to `90s` and is a variable.
+
+Everything about a running run — the live badge, streaming logs, the cancel control and every
+state cancel can be triggered from — needs a run that is still going when the test looks at it.
+Without a deliberate hold it is a race the test either wins or reports as a flake, and neither
+outcome says anything about the product.
+
+**Referenced by more cases than anything except the baseline**, and it gates the whole cancel
+block.
 
 ### `plan-fail/` — fails before writing anything
 
