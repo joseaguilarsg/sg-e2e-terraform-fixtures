@@ -95,8 +95,21 @@ A bucket name fixed on purpose, with no random suffix. Terraform cannot know the
 until it asks AWS, so the plan produces a complete valid set of facts and only the apply fails
 with `BucketAlreadyExists`.
 
-⚠️ **Requires `sg-e2e-taken-do-not-delete` to exist beforehand.** Create it once, by hand, and
-never delete it — if it disappears the apply starts succeeding and this stops being a fixture.
+⚠️ **Requires `sg-e2e-taken-do-not-delete` to exist beforehand, and to NOT be in this fixture's
+own state.** Both halves matter, and the second one is the trap:
+
+```
+first apply on a clean state  →  the fixture CREATES the bucket and adopts it
+every apply after that        →  no collision, run COMPLETES, fixture is silently useless
+a destroy                     →  takes the bucket with it
+```
+
+Measured on 2026-08-07: two consecutive applies both returned COMPLETED for exactly this reason.
+The recovery sequence is `destroy` → recreate the bucket by hand → `apply`, which then fails as
+intended.
+
+⇒ **Never run `apply` on this fixture from an empty state**, and never run `destroy` on it at all.
+The bucket lives outside Terraform on purpose; it is tagged `Purpose=wfr-apply-fail-collision-target`.
 
 ### `wfr-no-op/` — nothing to do, every time
 
