@@ -21,9 +21,9 @@ variable "region" {
 }
 
 variable "hold_seconds" {
-  description = "How long the run stalls. Long enough to open it and read it, short enough not to stall CI."
+  description = "How long the run stalls. Long enough for the whole in-flight block to read one run."
   type        = string
-  default     = "90s"
+  default     = "600s"
 }
 
 provider "aws" {
@@ -43,8 +43,21 @@ resource "random_id" "suffix" {
 #
 # The hold sits BEFORE the resource so the stall happens during plan/apply rather than after
 # everything already exists.
+#
+# 🔴 `triggers` is what makes this fixture work more than once, and it was measured the hard way.
+# `time_sleep` sleeps when it is CREATED. Without a trigger it lands in state on the first apply
+# and every apply after that plans it as a no-op, so the hold silently stops happening: the apply
+# phase collapsed from 109s to 17s on a repeat run. `timestamp()` differs on every plan, so the
+# resource is replaced each time and the hold always runs.
+#
+# ⚠️ The consequence is that this fixture's plan always carries a replacement. That is deliberate
+# here; do not copy the pattern into a fixture whose plan shape is what a case asserts on.
 resource "time_sleep" "hold" {
   create_duration = var.hold_seconds
+
+  triggers = {
+    run = timestamp()
+  }
 }
 
 resource "aws_s3_bucket" "slow" {

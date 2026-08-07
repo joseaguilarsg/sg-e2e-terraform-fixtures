@@ -140,7 +140,7 @@ confirmed on the platform, not here.
 ### `wfr-in-flight/` — slow on purpose
 
 A `time_sleep` before the bucket, so the run stalls **during** plan and apply rather than after
-everything already exists. `hold_seconds` defaults to `90s` and is a variable.
+everything already exists. `hold_seconds` defaults to `600s` and is a variable.
 
 Everything about a running run — the live badge, streaming logs, the cancel control and every
 state cancel can be triggered from — needs a run that is still going when the test looks at it.
@@ -149,6 +149,27 @@ outcome says anything about the product.
 
 **Referenced by more cases than anything except the baseline**, and it gates the whole cancel
 block.
+
+#### 🔴 `time_sleep` sleeps when it is CREATED — measured
+
+Without a trigger the resource lands in state on the first apply and every apply after that plans
+it as a **no-op**, so the hold silently stops happening:
+
+```
+apply on empty state       152s total · 109s inside apply-terraform-plan   ← the hold ran
+apply on populated state    70s total ·  17s inside apply-terraform-plan   ← it did not
+```
+
+⇒ `triggers = { run = timestamp() }` differs on every plan, so the hold is recreated — and always
+runs — on every apply. ⚠️ The cost is that this fixture's plan **always carries a replacement**.
+Deliberate here; do not copy it into a fixture whose plan shape is what a case asserts on.
+
+#### Why 600s
+
+One UI observation costs ~17s measured end to end, of which ~16s is a `networkidle` wait that can
+never settle because the dashboard polls continuously. At a 90s hold, one run served ~3 tests; the
+in-flight block is 27 cases. A 10-minute hold is what lets **one run serve the whole block**
+instead of paying for a run per handful of tests.
 
 ### `wfr-plan-fail/` — fails before writing anything
 
