@@ -105,9 +105,37 @@ Referenced by more cases than any other fixture. Every element earns its place:
 | `tags` | the surface to drift: change one in the console, the next refresh should notice |
 | two `output`s | one list, one scalar |
 
-**Applying this is the single highest-return action in the whole fixture backlog.** Nothing in
-the test group has ever applied, and without state there is no destroy, no refresh, no drift and
-no resources.
+#### ⚠️ It has two stages, and applying them in order is what makes it useful
+
+The plan has to carry **create, update, destroy, replace and untouched at the same time** — the
+test cases name every one of those operations. A fixture that has only ever created resources can
+never render a `~`, a `-` or a `-/+`, because **Terraform can only update or delete what is already
+in state.**
+
+So the fixture is a pair of applies, switched by `var.stage`:
+
+```
+stage = "seed"    alpha · beta · gamma · replaced-a          plants the pre-state
+stage = "mixed"   alpha · beta        · replaced-b · added   THE fixture run
+```
+
+What the mixed plan carries, and where each operation comes from:
+
+| Operation | Comes from |
+|---|---|
+| `-` destroy | `gamma` leaves the `for_each` set |
+| `~` update in place | the `Revision` tag flips `v1` → `v2` on every surviving bucket |
+| `-/+` replace | `replaced` carries `replace_token` in its **bucket name**, which is force-new |
+| `+` create | `added` exists only in the mixed stage |
+| untouched | `random_id.suffix` — unchanged, and still listed |
+
+⇒ **Seed first, apply, then switch to mixed and apply again.** The mixed *run* is the fixture; the
+state it leaves behind is incidental. Re-applying `mixed` afterwards is a no-op — to rebuild the
+fixture, go back to `seed` and repeat.
+
+⚠️ **The mixed plan shape cannot be verified locally.** `terraform validate` passes and the
+formatting is clean, but a plan needs real AWS credentials, so what the run actually renders is
+confirmed on the platform, not here.
 
 ### `wfr-in-flight/` — slow on purpose
 

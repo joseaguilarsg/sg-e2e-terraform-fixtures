@@ -23,23 +23,56 @@ variable "name_prefix" {
   default     = "sg-e2e"
 }
 
+# ⚠️ This is what makes the fixture produce a MIXED plan, and it is the whole point of the
+# variable existing. Terraform can only update or delete something that is already in state, so
+# a fixture that has only ever created resources can never render a `~`, a `-` or a `-/+`.
+#
+#   stage = "seed"    plants the previous state: three buckets and a replaceable one
+#   stage = "mixed"   the fixture proper - applied ON TOP of the seed, its plan carries
+#                     create, update, destroy, replace and untouched at the same time
+#
+# Seed first, apply once, then switch to mixed and apply again. The mixed RUN is the fixture;
+# the state it leaves behind is incidental.
+variable "stage" {
+  description = "Which side of the fixture to render: seed plants the pre-state, mixed is the fixture."
+  type        = string
+  default     = "mixed"
+
+  validation {
+    condition     = contains(["seed", "mixed"], var.stage)
+    error_message = "stage must be either \"seed\" or \"mixed\"."
+  }
+}
+
 provider "aws" {
   region = var.region
 }
 
-# The suffix is what makes the fixture re-appliable: S3 bucket names are unique across all of
-# AWS, so a fixed name collides with someone else's bucket and the apply fails in a way that
-# reads as a product bug. It doubles as the utility resource the breakdown cases need - a
-# `random_*` address renders its Service column as a dash while the `aws_*` ones read "AWS",
-# so one run carries both sides of that assertion.
+locals {
+  # gamma exists in the seed and is gone from the mixed stage -> a DESTROY.
+  bucket_keys = var.stage == "seed" ? ["alpha", "beta", "gamma"] : ["alpha", "beta"]
+
+  # A tag that differs between stages -> an UPDATE IN PLACE on every surviving bucket, without
+  # touching anything that would force a replacement.
+  revision = var.stage == "seed" ? "v1" : "v2"
+
+  # Part of a bucket name, and a bucket name cannot be changed in place -> a REPLACE, which the
+  # cases require to render as ONE row carrying both signs, never as a separate create + delete.
+  replace_token = var.stage == "seed" ? "a" : "b"
+}
+
+# Untouched on purpose, and it earns its place three times over: it keeps the bucket names unique
+# across all of AWS, it is the resource left UNCHANGED in the mixed plan (the cases assert those
+# are still listed and marked), and a `random_*` address must leave the Service column blank while
+# the `aws_*` ones read "AWS" - both sides of that assertion inside one run.
 resource "random_id" "suffix" {
   byte_length = 4
 }
 
-# for_each rather than count, and three of them rather than one: a resource must be named by
-# its own address, never by its position in a set. A singleton cannot exercise that at all.
+# for_each rather than count, and several rather than one: a resource must be named by its own
+# address, never by its position in a set. A singleton cannot exercise that at all.
 resource "aws_s3_bucket" "fixture" {
-  for_each = toset(["alpha", "beta", "gamma"])
+  for_each = toset(local.bucket_keys)
 
   bucket = "${var.name_prefix}-${each.key}-${random_id.suffix.hex}"
 
@@ -51,6 +84,39 @@ resource "aws_s3_bucket" "fixture" {
     Name      = each.key
     ManagedBy = "platform-qa"
     Fixture   = "wfr-tf-baseline"
+    Revision  = local.revision
+  }
+}
+
+# The replacement. Its name carries `replace_token`, and an S3 bucket name is force-new, so the
+# stage change destroys and recreates this one resource.
+resource "aws_s3_bucket" "replaced" {
+  bucket = "${var.name_prefix}-replaced-${local.replace_token}-${random_id.suffix.hex}"
+
+  force_destroy = true
+
+  tags = {
+    Name      = "replaced"
+    ManagedBy = "platform-qa"
+    Fixture   = "wfr-tf-baseline"
+    Revision  = local.revision
+  }
+}
+
+# Absent from the seed, present in the mixed stage -> a CREATE that sits alongside the update,
+# the destroy and the replace in the same plan.
+resource "aws_s3_bucket" "added" {
+  count = var.stage == "mixed" ? 1 : 0
+
+  bucket = "${var.name_prefix}-added-${random_id.suffix.hex}"
+
+  force_destroy = true
+
+  tags = {
+    Name      = "added"
+    ManagedBy = "platform-qa"
+    Fixture   = "wfr-tf-baseline"
+    Revision  = local.revision
   }
 }
 
