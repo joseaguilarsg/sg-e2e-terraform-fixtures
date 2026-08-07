@@ -44,7 +44,7 @@ resource "aws_security_group" "many" {
 
   tags = {
     ManagedBy = "platform-qa"
-    Fixture   = "many"
+    Fixture   = "wfr-tf-many"
     Index     = count.index
   }
 }

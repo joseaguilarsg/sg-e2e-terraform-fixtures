@@ -50,7 +50,7 @@ resource "aws_s3_bucket" "fixture" {
   tags = {
     Name      = each.key
     ManagedBy = "platform-qa"
-    Fixture   = "baseline"
+    Fixture   = "wfr-tf-baseline"
   }
 }
 

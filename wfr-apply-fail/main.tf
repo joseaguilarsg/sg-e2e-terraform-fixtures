@@ -37,7 +37,7 @@ resource "aws_s3_bucket" "clash" {
 
   tags = {
     ManagedBy = "platform-qa"
-    Fixture   = "apply-fail"
+    Fixture   = "wfr-apply-fail"
   }
 }
 

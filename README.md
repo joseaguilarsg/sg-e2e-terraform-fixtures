@@ -7,12 +7,16 @@ them. **Nothing here is meant to run outside the test org** — the resources ex
 applied and destroyed by tests, not to serve anything.
 
 ```
-baseline/     applies clean · 3 buckets + a utility resource   ← the workhorse
-in-flight/    holds mid-run so a running run can be read       ← unblocks all of cancel
-plan-fail/    fails during plan, before any facts are written
-apply-fail/   plan succeeds, apply collides on a taken name
-many/         40 resources with long addresses
+wfr-tf-baseline/   applies clean · 3 buckets + a utility resource   ← the workhorse
+wfr-in-flight/     holds mid-run so a running run can be read       ← unblocks all of cancel
+wfr-plan-fail/     fails during plan, before any facts are written
+wfr-apply-fail/    plan succeeds, apply collides on a taken name
+wfr-tf-many/       40 resources with long addresses
 ```
+
+⚠️ **The folder name IS the fixture id from the test-case plan** — the same `[wfr-...]` each case
+carries in its `Preconditions`. They are deliberately not renamed to something more readable: a
+failing test has to name the exact state the case asked for, findable without a mapping table.
 
 ---
 
@@ -38,7 +42,7 @@ after a run*. That is naturally a second commit or branch — but it is one fixt
 
 ## The fixtures
 
-### `baseline/` — the workhorse
+### `wfr-tf-baseline/` — the workhorse
 
 Referenced by more cases than any other fixture. Every element earns its place:
 
@@ -56,7 +60,7 @@ Referenced by more cases than any other fixture. Every element earns its place:
 the test group has ever applied, and without state there is no destroy, no refresh, no drift and
 no resources.
 
-### `in-flight/` — slow on purpose
+### `wfr-in-flight/` — slow on purpose
 
 A `time_sleep` before the bucket, so the run stalls **during** plan and apply rather than after
 everything already exists. `hold_seconds` defaults to `90s` and is a variable.
@@ -69,7 +73,7 @@ outcome says anything about the product.
 **Referenced by more cases than anything except the baseline**, and it gates the whole cancel
 block.
 
-### `plan-fail/` — fails before writing anything
+### `wfr-plan-fail/` — fails before writing anything
 
 References a variable that is never declared, so Terraform rejects the configuration while
 evaluating it: no resource list, no cost estimate, no policy evaluation.
@@ -78,7 +82,7 @@ evaluating it: no resource list, no cost estimate, no policy evaluation.
 *inputs* — also an error at plan, but a different path. *"No facts"* is the actual assertion of
 the cases that use it, so it has to fail before anything is written.
 
-### `apply-fail/` — the plan survives, the apply does not
+### `wfr-apply-fail/` — the plan survives, the apply does not
 
 A bucket name fixed on purpose, with no random suffix. Terraform cannot know the name is taken
 until it asks AWS, so the plan produces a complete valid set of facts and only the apply fails
@@ -87,23 +91,23 @@ with `BucketAlreadyExists`.
 ⚠️ **Requires `sg-e2e-taken-do-not-delete` to exist beforehand.** Create it once, by hand, and
 never delete it — if it disappears the apply starts succeeding and this stops being a fixture.
 
-### `many/` — pagination and truncation
+### `wfr-tf-many/` — pagination and truncation
 
 40 security groups with deliberately long names.
 
 ⚠️ **Security groups rather than buckets on purpose.** The default S3 quota is 100 buckets per
-account and `baseline/` already spends some; 40 more would push a shared account near the ceiling
+account and `wfr-tf-baseline/` already spends some; 40 more would push a shared account near the ceiling
 and the fixture would fail for a reason unrelated to what it tests.
 
 ---
 
 ## Not here, and why
 
-**`no-op`** — a no-op is *"apply, then plan again"*. The baseline once applied **is** the no-op,
+**`wfr-no-op`** — a no-op is *"apply, then plan again"*. The baseline once applied **is** the no-op,
 so it needs no code of its own. It needs a second workflow only if a no-op must coexist with a
 baseline that still has pending changes.
 
-**`minimal-config`** — a workflow with no source config, no mini steps, no runner constraints and
+**`wfr-minimal-config`** — a workflow with no source config, no mini steps, no runner constraints and
 no approvers. That is **workflow configuration**, not code.
 
 **Anything CUSTOM** — `wfStepInputData.command` is ignored; a step's command comes from its step

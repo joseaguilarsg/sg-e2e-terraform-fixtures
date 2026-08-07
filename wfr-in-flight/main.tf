@@ -55,7 +55,7 @@ resource "aws_s3_bucket" "slow" {
 
   tags = {
     ManagedBy = "platform-qa"
-    Fixture   = "in-flight"
+    Fixture   = "wfr-in-flight"
   }
 }
 
