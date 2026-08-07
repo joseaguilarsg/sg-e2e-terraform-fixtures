@@ -13,6 +13,12 @@ wfr-plan-fail/     fails during plan, before any facts are written
 wfr-apply-fail/    plan succeeds, apply collides on a taken name
 wfr-tf-many/       40 resources with long addresses
 wfr-no-op/         a plan that finds nothing to do, every time
+wfr-init-fail/     dies during init, before any step exists
+wfr-with-inputs/   six inputs of five types, for the +N more affordance
+wfr-no-inputs/     none at all — the counterpart
+wfr-logs-large/    50k lines, past any inline threshold
+wfr-logs-debug/    carries a debug-only line
+wfr-step-error-exit0/  prints an error banner and SUCCEEDS
 ```
 
 ⚠️ **The folder name IS the fixture id from the test-case plan** — the same `[wfr-...]` each case
@@ -110,6 +116,48 @@ nothing drifts, and stops being one the moment anything changes outside Terrafor
 ⚠️ **Security groups rather than buckets on purpose.** The default S3 quota is 100 buckets per
 account and `wfr-tf-baseline/` already spends some; 40 more would push a shared account near the ceiling
 and the fixture would fail for a reason unrelated to what it tests.
+
+### `wfr-init-fail/` — dies before any step exists
+
+Requires a provider that is not in the registry, so `init` fails while resolving it. Nothing
+after init starts: no plan, no step output, no facts.
+
+⚠️ **That is the distinction the cases rest on.** A failed *step* still produced a step and its
+output; an init failure means the run died before the first step existed, so the surfaces that
+read "which step failed" have nothing to read.
+
+### `wfr-with-inputs/` and `wfr-no-inputs/`
+
+Six inputs across five types — string, number, bool, list, map — against a configuration that
+declares none.
+
+⚠️ **The types differ on purpose.** The cases assert values keep their Terraform shape: strings
+quoted, numbers and booleans bare, structures as raw objects. Six strings would let a page that
+quotes everything pass.
+
+### `wfr-logs-large/` — past any inline threshold
+
+50 000 padded lines.
+
+⚠️ **The threshold is a backend property and is not measured.** The count is deliberately far
+past any plausible cutoff rather than tuned to it — a fixture sitting near the boundary would
+flip between inline and pointer as the log format changes, and a test that passes for the wrong
+reason is worse than one that fails.
+
+### `wfr-logs-debug/` — one debug-only line
+
+⚠️ **The marker literal is a guess at the shape, not field-truth.** Which token the platform
+treats as debug-only lives in the runner (`sg-run-controller`), not here — the same gap that
+blocks `TC-225`. Confirm the real one before writing the assertion, or the test matches a string
+we invented.
+
+### `wfr-step-error-exit0/` — looks failed, succeeded
+
+Prints `--- ERROR ---` and exits 0. **The run succeeds**, so any surface deciding "failed" by
+scanning the log for error-looking text gets it wrong. The exit code is the truth.
+
+The plan names an existing instance (`simple-ec2-g8qe`, step `preprepre`), but that lives in a
+personal workflow group — the churn this repo replaces.
 
 ---
 
