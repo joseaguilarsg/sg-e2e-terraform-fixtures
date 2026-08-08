@@ -21,9 +21,9 @@ variable "region" {
 }
 
 variable "hold_seconds" {
-  description = "How long the run stalls. Long enough for the whole in-flight block to read one run."
+  description = "How long the run stalls. Long enough to arrive and act, not longer."
   type        = string
-  default     = "600s"
+  default     = "180s"
 }
 
 provider "aws" {

@@ -164,12 +164,17 @@ apply on populated state    70s total ·  17s inside apply-terraform-plan   ← 
 runs — on every apply. ⚠️ The cost is that this fixture's plan **always carries a replacement**.
 Deliberate here; do not copy it into a fixture whose plan shape is what a case asserts on.
 
-#### Why 600s
+#### Why 180s, and why it was 600s for a day
 
-One UI observation costs ~17s measured end to end, of which ~16s is a `networkidle` wait that can
-never settle because the dashboard polls continuously. At a 90s hold, one run served ~3 tests; the
-in-flight block is 27 cases. A 10-minute hold is what lets **one run serve the whole block**
-instead of paying for a run per handful of tests.
+⚠️ The 600s it briefly held was compensating for a framework defect instead of fixing it: every
+navigation waited for a `networkidle` that never arrives on this product, so one UI observation
+cost ~17s of which ~16 were that wait. `navigate()` now takes `wait_until`, so an observation
+costs about a second and 180s fits far more of them than 600s ever did.
+
+⚠️ And the arithmetic behind 600s did not apply to the block it was meant to serve. **A cancel
+test CONSUMES the run** — thirteen cancel cases cannot share one, whatever the hold. The hold only
+has to last long enough for one test to arrive and act; sharing only ever helped the observation
+cases (live badge, streaming logs), which are the minority.
 
 ### `wfr-plan-fail/` — fails before writing anything
 
