@@ -67,3 +67,15 @@ resource "null_resource" "inputs" {
     tags               = jsonencode(var.tags)
   }
 }
+
+# ⚠️ EXPERIMENT, not yet a fixture: Terraform's own way of marking an input secret. Nobody has
+# measured what the run detail does with it — whether the value comes back masked, comes back in
+# the clear, or never leaves the plan at all. Until that is measured, no case should assert on it:
+# `test_run_inputs_section.py` already refuses to, and it is right to
+# ("asserting it against a run without one would pass vacuously").
+variable "api_token" {
+  description = "Marked sensitive so the platform has something to mask, if it masks anything."
+  type        = string
+  sensitive   = true
+  default     = "sg-e2e-not-a-real-secret"
+}
