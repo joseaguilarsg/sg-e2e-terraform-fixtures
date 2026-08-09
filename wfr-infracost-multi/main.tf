@@ -18,6 +18,8 @@ terraform {
   required_providers {
     aws    = { source = "hashicorp/aws", version = "~> 5.0" }
     random = { source = "hashicorp/random", version = "~> 3.0" }
+    tls    = { source = "hashicorp/tls",    version = "~> 4.0" }
+    null   = { source = "hashicorp/null",   version = "~> 3.0" }
   }
 }
 
@@ -52,7 +54,24 @@ resource "aws_ebs_volume" "data" {
   tags = { Name = "sg-e2e-cost-volume", Fixture = "wfr-infracost-multi" }
 }
 
-# Priced at nothing — the utility half of TC-303.
-resource "random_pet" "label" {
-  length = 2
+# ── the utility half of TC-303 ────────────────────────────────────────────────────────────────
+# The case names these three by name, and the distinction it draws is precise: `Service` must be
+# BLANK for them, not a capitalised version of their prefix. Anything outside the known provider
+# list falls through to nothing, so a new cloud provider reads blank until somebody adds it —
+# which is the behaviour the case guards.
+#
+# ⚠️ `random_pet` was here first and did NOT work: Infracost reported `totalDetectedResources: 0`
+# for it — it is not merely unpriced, it is not detected at all, so it never reaches the table.
+# These three are the ones the case asks for; whether they surface is measured, not assumed.
+resource "random_password" "secret" {
+  length = 24
+}
+
+resource "tls_private_key" "key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+resource "null_resource" "noop" {
+  triggers = { always = "static" }
 }
