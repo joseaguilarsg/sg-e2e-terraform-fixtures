@@ -39,7 +39,11 @@ resource "random_id" "suffix" {
 resource "aws_security_group" "many" {
   count = var.resource_count
 
-  name        = "${format("sg-e2e-fixture-with-a-deliberately-long-name-%03d", count.index)}-${random_id.suffix.hex}"
+  # ⚠️ NOT "sg-...": AWS reserves that prefix for security-group IDs and rejects any group named
+  # with it ("invalid value for name (cannot begin with sg-)"). Measured 2026-08-15, which is why
+  # these 40 resources had only ever existed in the plan - every apply of this fixture failed at
+  # validation, and the cases needing a populated state skipped for want of a subject.
+  name        = "${format("e2e-fixture-with-a-deliberately-long-name-%03d", count.index)}-${random_id.suffix.hex}"
   description = "Fixture resource ${count.index} - the long name is what exercises truncation"
 
   tags = {
